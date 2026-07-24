@@ -18,6 +18,12 @@
 **Mitigations:** Admin can only cancel/execute — cannot alter votes or tallies. Admin vote restriction option. Events make all admin actions auditable.  
 **Residual Risk:** Medium (by design — admin is a trusted role; use multisig in production)
 
+### T3a — Quorum Manipulation via update_quorum
+**Goal:** Admin waits for votes to accumulate, then lowers quorum to exactly the current vote count to force a proposal to pass without genuine participation.  
+**Attack Scenario:** Admin creates or monitors a proposal. Enough votes accumulate to meet a lowered quorum but not the original. Admin calls `update_quorum` within the 10% time window to lower the quorum floor to the current `total_votes`, making the proposal instantly eligible for finalization.  
+**Mitigations:** `update_quorum` rejects any `new_quorum` that is strictly less than the proposal's current `total_votes` (sum of yes + no + abstain) with `ContractError::QuorumBelowCurrentVotes` (code 61). This guard applies even within the permitted 10% update window.  
+**Residual Risk:** Low — the guard makes it impossible to lower quorum below accumulated votes.
+
 ### T4 — External Attacker (No Tokens)
 **Goal:** Disrupt governance without holding tokens.  
 **Mitigations:** `require_auth()` on all state-changing ops, initialization guard, state machine checks.  
