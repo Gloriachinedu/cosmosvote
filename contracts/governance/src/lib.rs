@@ -259,6 +259,14 @@ impl GovernanceContract {
         GovernanceStorage::proposal_count(&env)
     }
 
+    /// Current number of proposals in a non-terminal state (Active).
+    ///
+    /// Off-chain dashboards and the frontend can use this to display
+    /// "X active proposals" without paginating through all proposals.
+    pub fn active_proposal_count(env: Env) -> u64 {
+        GovernanceStorage::active_proposal_count(&env)
+    }
+
     /// Paginated list of proposals.
     pub fn get_proposals(env: Env, from_id: u64, limit: u32) -> Vec<Proposal> {
         let count = GovernanceStorage::proposal_count(&env);

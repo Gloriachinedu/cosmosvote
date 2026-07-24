@@ -1593,3 +1593,33 @@ fn test_active_proposal_limit() {
     );
     assert_eq!(result, Err(Ok(ContractError::ProposalsStillActive)));
 }
+
+// ---------------------------------------------------------------------------
+// Issue #574: active_proposal_count public query
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_active_proposal_count_increments_and_decrements() {
+    let env = Env::default();
+    let (gov, _, admin, voter, _) = setup(&env);
+
+    // Initially zero
+    assert_eq!(gov.active_proposal_count(), 0u64);
+
+    // Create first proposal — count becomes 1
+    let id0 = make_proposal(&gov, &env, &voter);
+    assert_eq!(gov.active_proposal_count(), 1u64);
+
+    // Create second proposal — count becomes 2
+    let id1 = make_proposal(&gov, &env, &voter);
+    assert_eq!(gov.active_proposal_count(), 2u64);
+
+    // Cancel first proposal — count decrements to 1
+    gov.cancel(&admin, &id0);
+    assert_eq!(gov.active_proposal_count(), 1u64);
+
+    // Fast-forward time past the second proposal's voting window, then finalise
+    env.ledger().set_timestamp(env.ledger().timestamp() + 604_800 + 1);
+    gov.finalise(&id1);
+    assert_eq!(gov.active_proposal_count(), 0u64);
+}
