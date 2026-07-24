@@ -1,54 +1,42 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import type { Proposal, ProposalState } from './types';
-import { fetchAllProposals, fetchTokenBalance, fetchTokenDecimals, checkRpcReachability } from './api';
+import { fetchAllProposals, fetchTokenDecimals, checkRpcReachability } from './api';
 import { ProposalCard } from './components/ProposalCard';
 import { ProposalSkeleton } from './components/ProposalSkeleton';
 import { ProposalDetail } from './components/ProposalDetail';
-import { useToast } from './components/ToastContext';
+import { CreateProposalForm } from './components/CreateProposalForm';
+import { ConnectWalletModal } from './components/ConnectWalletModal';
+import { useWallet } from './WalletContext';
 import { ACTIVE_NETWORK } from './config';
 import { formatTokenAmount } from './utils';
+import styles from './App.module.css';
 import './responsive.css';
 
 const ALL_STATES: ProposalState[] = ['Active', 'Passed', 'Rejected', 'Executed', 'Cancelled'];
-const PAGE_SIZE = 20;
-
-async function connect() {
-  // wallet connection placeholder
-}
 
 // Admin address — in production this would come from the contract or environment config
 const ADMIN_ADDRESS = import.meta.env.VITE_ADMIN_ADDRESS ?? null;
 
 export default function App() {
-  const { walletAddress, walletName, tokenBalance, showModal, openModal, disconnect } = useWallet();
+  const { walletAddress, tokenBalance, showModal, openModal, disconnect } = useWallet();
   const [proposals, setProposals] = useState<Proposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [progress, setProgress] = useState<{ loaded: number; total: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [announcement, setAnnouncement] = useState('');
   const [search, setSearch] = useState('');
   const [stateFilter, setStateFilter] = useState<ProposalState | 'All'>('All');
   const [selected, setSelected] = useState<Proposal | null>(null);
-  const triggerRef = useRef<HTMLElement>(null);
-  const [walletAddress, setWalletAddress] = useState<string | null>(null);
-  const [tokenBalance, setTokenBalance] = useState<bigint | null>(null);
+  const [showCreateForm, setShowCreateForm] = useState(false);
   const [decimals, setDecimals] = useState<number>(0);
   const [rpcWarning, setRpcWarning] = useState<string | null>(null);
-
-  const connect = () => {
-    const addr = prompt('Enter your Stellar address (G...):');
-    if (addr?.startsWith('G')) setWalletAddress(addr);
-  };
-
-  const disconnect = () => setWalletAddress(null);
-
-  useEffect(() => {
-    if (!walletAddress) { setTokenBalance(null); return; }
-    fetchTokenBalance(walletAddress).then(setTokenBalance).catch(() => setTokenBalance(null));
-  }, [walletAddress]);
+  const triggerRef = useRef<HTMLElement>(null);
 
   const refreshProposals = () => {
-    fetchAllProposals().then(setProposals).catch(() => {});
+    setLoading(true);
+    fetchAllProposals()
+      .then(setProposals)
+      .catch(e => setError(String(e)))
+      .finally(() => setLoading(false));
   };
 
   useEffect(() => {
@@ -59,11 +47,6 @@ export default function App() {
       .then(([props, decs]) => {
         setProposals(props);
         setDecimals(decs);
-        setAnnouncement(`${props.length} proposal${props.length !== 1 ? 's' : ''} loaded.`);
-      })
-      .catch(e => {
-        setError(String(e));
-        setAnnouncement('');
       })
       .catch(e => setError(String(e)))
       .finally(() => { setLoading(false); setProgress(null); });
@@ -75,16 +58,6 @@ export default function App() {
     });
   }, []);
 
-  const connect = () => {
-    const addr = prompt('Enter your Stellar address (G...):');
-    if (addr?.startsWith('G')) {
-      setWalletAddress(addr);
-      fetchTokenBalance(addr)
-        .then(setTokenBalance)
-        .catch(() => setTokenBalance(null));
-    }
-  };
-
   const filtered = useMemo(() => {
     return proposals.filter(p => {
       const matchState = stateFilter === 'All' || p.state === stateFilter;
@@ -95,15 +68,15 @@ export default function App() {
   }, [proposals, search, stateFilter]);
 
   const handleProposalCreated = (id: number) => {
-    setShowNewForm(false);
-    // In a real implementation, fetch the new proposal and navigate to it
-    setAnnouncement(`Proposal #${id} created. Refreshing list…`);
+    setShowCreateForm(false);
+    setSelected(null);
+    // Refetch proposals to show the new one
+    refreshProposals();
+    // Optionally navigate or announce success
   };
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: 'system-ui, sans-serif' }}>
-      <AriaLive polite={announcement} assertive={error ?? undefined} />
-
       {/* Header */}
       <header style={{ background: 'var(--bg-header)', color: 'var(--text-header)', padding: '1rem 2rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
         <div>
@@ -111,18 +84,11 @@ export default function App() {
           <span style={{ fontSize: '0.75rem', color: 'var(--text-header-sub)' }}>On-chain governance · {ACTIVE_NETWORK}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-          <button
-            onClick={() => setTheme(t => t === 'dark' ? 'light' : 'dark')}
-            aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-            style={{ background: 'none', border: '1px solid var(--text-header-sub)', borderRadius: 6, padding: '0.4rem 0.6rem', cursor: 'pointer', color: 'var(--text-header)', fontSize: '1rem', lineHeight: 1 }}
-          >
-            {theme === 'dark' ? '☀️' : '🌙'}
-          </button>
           {walletAddress ? (
             <div style={{ textAlign: 'right' }}>
               <div style={{ fontSize: '0.75rem', color: 'var(--text-header-sub)' }}>{walletAddress.slice(0, 6)}...{walletAddress.slice(-4)}</div>
               {tokenBalance !== null && (
-                <div className={styles.headerBalance}>{formatTokenAmount(tokenBalance, decimals)}</div>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600 }}>{formatTokenAmount(tokenBalance, decimals)}</div>
               )}
               <button
                 onClick={disconnect}
@@ -142,9 +108,8 @@ export default function App() {
         </div>
       </header>
 
-      <ErrorBoundary>
       <main style={{ maxWidth: 900, margin: '0 auto', padding: '2rem 1rem' }}>
-        {/* Filters */}
+        {/* Filters + New Proposal Button */}
         <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
           <input
             type="search"
@@ -163,6 +128,23 @@ export default function App() {
             <option value="All">All States</option>
             {ALL_STATES.map(s => <option key={s} value={s}>{s}</option>)}
           </select>
+          <button
+            onClick={() => setShowCreateForm(true)}
+            disabled={!walletAddress}
+            title={!walletAddress ? 'Connect wallet to create proposals' : 'Create new proposal'}
+            style={{
+              padding: '0.5rem 1rem',
+              background: walletAddress ? '#10b981' : '#d1d5db',
+              color: walletAddress ? '#fff' : '#6b7280',
+              border: 'none',
+              borderRadius: 6,
+              cursor: walletAddress ? 'pointer' : 'not-allowed',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+            }}
+          >
+            + New Proposal
+          </button>
         </div>
 
         {rpcWarning && (
@@ -212,20 +194,9 @@ export default function App() {
             }} />
           ))}
         </div>
-
-        {!loading && filtered.length > 0 && (
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            totalCount={filtered.length}
-            pageSize={PAGE_SIZE}
-            onPrev={() => setPage(p => Math.max(1, p - 1))}
-            onNext={() => setPage(p => Math.min(totalPages, p + 1))}
-          />
-        )}
       </main>
-      </ErrorBoundary>
 
+      {/* Modals */}
       {selected && (
         <ProposalDetail
           proposal={selected}
@@ -234,6 +205,13 @@ export default function App() {
           adminAddress={ADMIN_ADDRESS}
           onClose={() => setSelected(null)}
           triggerRef={triggerRef}
+        />
+      )}
+
+      {showCreateForm && (
+        <CreateProposalForm
+          onClose={() => setShowCreateForm(false)}
+          onSuccess={handleProposalCreated}
         />
       )}
 
