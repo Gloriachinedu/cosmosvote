@@ -147,6 +147,117 @@ export async function fetchTokenDecimals(): Promise<number> {
   return Number(result);
 }
 
+export async function fetchActiveProposalCount(): Promise<number> {
+  const result = await simulateCall(
+    config.governanceContractId,
+    'active_proposal_count'
+  );
+  return Number(result);
+}
+
+export interface CreateProposalParams {
+  proposer: string;
+  title: string;
+  description: string;
+  quorum: bigint;
+  duration: number;
+  link?: string;
+}
+
+/**
+ * Build, simulate, sign (via Freighter), and submit a create_proposal transaction.
+ * Returns the new proposal ID on success.
+ */
+export async function createProposal(params: CreateProposalParams): Promise<number> {
+  const { isConnected, requestAccess, getAddress, signTransaction } = await import('@stellar/freighter-api');
+
+  const connected = await isConnected();
+  if (!connected) throw new Error('Freighter extension not found. Please install it.');
+
+  await requestAccess();
+  const addrResult = await getAddress();
+  if (addrResult.error) throw new Error(addrResult.error.message);
+
+  const walletAddress = addrResult.address;
+  const accountResp = await server.getAccount(walletAddress);
+  const account = new Account(walletAddress, accountResp.sequence);
+
+  const linkArg = params.link
+    ? nativeToScVal(params.link, { type: 'string' })
+    : xdr.ScVal.scvVoid();
+
+  const tx = new TransactionBuilder(account, {
+    fee: '100',
+    networkPassphrase: config.networkPassphrase,
+  })
+    .addOperation(
+      Operation.invokeContractFunction({
+        contract: config.governanceContractId,
+        function: 'create_proposal',
+        args: [
+          nativeToScVal(walletAddress, { type: 'address' }),
+          nativeToScVal(params.title, { type: 'string' }),
+          nativeToScVal(params.description, { type: 'string' }),
+          nativeToScVal(params.quorum, { type: 'i128' }),
+          nativeToScVal(BigInt(params.duration), { type: 'u64' }),
+          linkArg,
+          xdr.ScVal.scvVoid(), // treasury_action: None
+        ],
+      })
+    )
+    .setTimeout(30)
+    .build();
+
+  // Simulate to verify and obtain the authorisation + footprint
+  const simResult = await server.simulateTransaction(tx) as SorobanRpc.Api.SimulateTransactionSuccessResponse;
+  if ('error' in simResult || !simResult.result) {
+    throw new Error(
+      'error' in simResult
+        ? String((simResult as unknown as { error: string }).error)
+        : 'Transaction simulation failed. Check contract address and inputs.'
+    );
+  }
+
+  // Assemble the transaction: attaches the simulated auth + resource fee
+  const assembled = SorobanRpc.assembleTransaction(tx, simResult).build();
+
+  // Sign via Freighter
+  const signResult = await signTransaction(assembled.toXDR(), {
+    networkPassphrase: config.networkPassphrase,
+  });
+  if ('error' in signResult) throw new Error(String(signResult.error));
+
+  // Submit to the network
+  const signed = TransactionBuilder.fromXDR(
+    signResult.signedTxXdr,
+    config.networkPassphrase
+  );
+  const sendResult = await server.sendTransaction(signed);
+
+  if (sendResult.status === 'ERROR') {
+    throw new Error(`Transaction rejected: ${JSON.stringify(sendResult.errorResult)}`);
+  }
+
+  // Poll until confirmed (up to ~30 s)
+  let getResult: SorobanRpc.Api.GetTransactionResponse | undefined;
+  for (let i = 0; i < 20; i++) {
+    await new Promise(r => setTimeout(r, 1500));
+    getResult = await server.getTransaction(sendResult.hash);
+    if (getResult.status !== 'NOT_FOUND') break;
+  }
+
+  if (!getResult || getResult.status !== 'SUCCESS') {
+    throw new Error(`Transaction did not confirm in time. Status: ${getResult?.status}`);
+  }
+
+  // The contract returns the new proposal ID (u64)
+  const successResult = getResult as SorobanRpc.Api.GetSuccessfulTransactionResponse;
+  if (successResult.returnValue) {
+    return Number(scValToNative(successResult.returnValue));
+  }
+  return -1;
+}
+
 export async function castVote(
   walletAddress: string,
   proposalId: number,

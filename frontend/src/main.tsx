@@ -13,9 +13,11 @@ try {
   validateConfig();
   createRoot(root).render(
     <StrictMode>
-      <ToastProvider>
-        <App />
-      </ToastProvider>
+      <WalletProvider>
+        <ToastProvider>
+          <App />
+        </ToastProvider>
+      </WalletProvider>
     </StrictMode>
   );
 } catch (error) {
