@@ -691,6 +691,18 @@ impl GovernanceContract {
             return Err(ContractError::QuorumUpdateNotAllowed);
         }
 
+        // Safety: prevent lowering quorum below the current total vote count.
+        // An admin who waits for votes to accumulate and then lowers quorum to
+        // exactly the current vote count could force a proposal to pass without
+        // genuine deliberation.
+        let total_votes = proposal.votes_yes
+            .checked_add(proposal.votes_no)
+            .and_then(|v| v.checked_add(proposal.votes_abstain))
+            .ok_or(ContractError::ArithmeticOverflow)?;
+        if new_quorum < total_votes {
+            return Err(ContractError::QuorumBelowCurrentVotes);
+        }
+
         let old_quorum = proposal.quorum;
         proposal.quorum = new_quorum;
         GovernanceStorage::set_proposal(&env, proposal_id, &proposal);

@@ -1593,3 +1593,90 @@ fn test_active_proposal_limit() {
     );
     assert_eq!(result, Err(Ok(ContractError::ProposalsStillActive)));
 }
+
+// ---------------------------------------------------------------------------
+// Issue #571: update_quorum cannot lower quorum below current vote count
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_update_quorum_blocked_below_current_votes() {
+    let env = Env::default();
+    let (gov, _, admin, voter, _) = setup(&env);
+
+    // Create a proposal with quorum = 5_000_000 (50% of voter's balance)
+    let id = gov.create_proposal(
+        &voter,
+        &String::from_str(&env, "Test Quorum Guard"),
+        &String::from_str(&env, "Admin should not be able to force-pass by lowering quorum"),
+        &5_000_000i128,
+        &3600u64,
+        &None,
+        &None,
+    );
+
+    // Voter casts a Yes vote, weight = 10_000_000
+    gov.cast_vote(&voter, &id, &Vote::Yes);
+
+    // Admin attempts to lower quorum to 1 (well below the 10_000_000 total votes)
+    // This should be blocked within the 10% time window
+    let result = gov.try_update_quorum(&admin, &id, &1i128);
+    assert_eq!(result, Err(Ok(ContractError::QuorumBelowCurrentVotes)));
+}
+
+#[test]
+fn test_update_quorum_allowed_equal_to_votes() {
+    let env = Env::default();
+    let (gov, _, admin, voter, _) = setup(&env);
+
+    let id = gov.create_proposal(
+        &voter,
+        &String::from_str(&env, "Test Quorum Equal"),
+        &String::from_str(&env, "Setting quorum equal to total votes should succeed"),
+        &5_000_000i128,
+        &3600u64,
+        &None,
+        &None,
+    );
+
+    // Voter casts a Yes vote, weight = 10_000_000
+    gov.cast_vote(&voter, &id, &Vote::Yes);
+
+    // Setting quorum equal to total_votes (10_000_000) is allowed
+    gov.update_quorum(&admin, &id, &10_000_000i128);
+    let proposal = gov.get_proposal(&id);
+    assert_eq!(proposal.quorum, 10_000_000i128);
+}
+
+#[test]
+fn test_update_quorum_attack_scenario() {
+    // Scenario: admin waits for votes to accumulate, then tries to lower quorum
+    // to force the proposal to pass — this is the exact attack described in #571
+    let env = Env::default();
+    let (gov, _, admin, voter, voter2) = setup(&env);
+
+    // Create proposal with quorum = 20_000_000 (requires both voters to pass)
+    let id = gov.create_proposal(
+        &voter,
+        &String::from_str(&env, "Governance Attack Test"),
+        &String::from_str(&env, "Attack: lower quorum after votes to force pass"),
+        &20_000_000i128,
+        &3600u64,
+        &None,
+        &None,
+    );
+
+    // voter (10_000_000) and voter2 (5_000_000) both vote Yes
+    // Total votes = 15_000_000, still below quorum of 20_000_000
+    gov.cast_vote(&voter, &id, &Vote::Yes);
+    gov.cast_vote(&voter2, &id, &Vote::Yes);
+
+    // Admin tries to lower quorum to 15_000_000 (exactly the current vote count)
+    // This should be blocked — quorum < total_votes check
+    let result = gov.try_update_quorum(&admin, &id, &14_999_999i128);
+    assert_eq!(result, Err(Ok(ContractError::QuorumBelowCurrentVotes)));
+
+    // Setting quorum to exactly 15_000_000 is allowed (not strictly less than)
+    gov.update_quorum(&admin, &id, &15_000_000i128);
+    let proposal = gov.get_proposal(&id);
+    assert_eq!(proposal.quorum, 15_000_000i128);
+}

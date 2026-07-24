@@ -57,6 +57,12 @@ pub enum ContractError {
 
     // Execution
     ExecutionFailed     = 60,
+
+    // Quorum integrity
+    /// Raised by update_quorum when new_quorum < total_votes (yes + no + abstain).
+    /// Lowering quorum below the current vote count would instantly pass a proposal
+    /// without genuine deliberation and is therefore rejected.
+    QuorumBelowCurrentVotes = 61,
 }
 
 // ---------------------------------------------------------------------------
