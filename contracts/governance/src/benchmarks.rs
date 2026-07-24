@@ -36,7 +36,7 @@ fn setup_env() -> (Env, GovernanceContractClient<'static>, TokenContractClient<'
 
     let gov_id = env.register(GovernanceContract, ());
     let gov = GovernanceContractClient::new(&env, &gov_id);
-    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None);
+    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
     (env, gov, token, admin, proposer)
 }
