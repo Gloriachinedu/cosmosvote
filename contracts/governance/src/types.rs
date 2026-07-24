@@ -57,6 +57,11 @@ pub enum ContractError {
 
     // Execution
     ExecutionFailed     = 60,
+
+    /// Returned by execute() when the execution timelock period has not yet elapsed.
+    /// The timelock gives token holders time to review and react before a
+    /// passed proposal takes effect. Set timelock_seconds=0 to disable.
+    TimelockNotExpired  = 62,
 }
 
 // ---------------------------------------------------------------------------
@@ -132,6 +137,10 @@ pub struct Proposal {
     pub voter_count: u32,
     /// Optional treasury disbursement to execute on proposal execution.
     pub treasury_action: Vec<TreasuryAction>,
+    /// Unix timestamp after which execute() may be called.
+    /// Set by finalise() as `finalize_time + timelock_seconds`.
+    /// Zero means no timelock (execute immediately after passing).
+    pub execute_after: u64,
 }
 
 // ---------------------------------------------------------------------------
@@ -162,4 +171,7 @@ pub struct GovernanceConfig {
     pub proposal_cooldown: u64,
     pub restrict_admin_vote: bool,
     pub paused: bool,
+    /// Seconds that must elapse after finalization before execute() is callable.
+    /// Zero means the timelock is disabled.
+    pub timelock_seconds: u64,
 }

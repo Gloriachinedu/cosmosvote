@@ -85,6 +85,7 @@ impl GovernanceContract {
     /// * `min_quorum_bps`       – minimum quorum floor in basis points (100 = 1%)
     /// * `restrict_admin_vote`  – if true, admin cannot vote on own proposals
     /// * `treasury`             – optional treasury contract address
+    /// * `timelock_seconds`     – seconds after finalization before execute() is callable (0 = disabled)
     pub fn initialize(
         env: Env,
         admin: Address,
@@ -94,6 +95,7 @@ impl GovernanceContract {
         min_quorum_bps: u32,
         restrict_admin_vote: bool,
         treasury: Option<Address>,
+        timelock_seconds: u64,
     ) -> Result<(), ContractError> {
         if GovernanceStorage::contract_state(&env) != ContractState::Uninitialized {
             return Err(ContractError::AlreadyInitialized);
@@ -109,6 +111,7 @@ impl GovernanceContract {
         GovernanceStorage::set_proposal_cooldown(&env, proposal_cooldown);
         GovernanceStorage::set_min_quorum_bps(&env, min_quorum_bps);
         GovernanceStorage::set_restrict_admin_vote(&env, restrict_admin_vote);
+        GovernanceStorage::set_timelock_seconds(&env, timelock_seconds);
         GovernanceStorage::set_paused(&env, false);
         GovernanceStorage::set_contract_state(&env, ContractState::Ready);
         GovernanceStorage::set_version(&env, (1, 0, 0));
@@ -126,6 +129,7 @@ impl GovernanceContract {
             proposal_cooldown: GovernanceStorage::proposal_cooldown(&env),
             restrict_admin_vote: GovernanceStorage::restrict_admin_vote(&env),
             paused: GovernanceStorage::paused(&env),
+            timelock_seconds: GovernanceStorage::timelock_seconds(&env),
         }
     }
 
@@ -237,6 +241,7 @@ impl GovernanceContract {
                 Some(a) => Vec::from_array(&env, [a]),
                 None => Vec::new(&env),
             },
+            execute_after: 0,
         };
 
         GovernanceStorage::set_proposal(&env, id, &proposal);
@@ -581,6 +586,13 @@ impl GovernanceContract {
         let passed = total_votes >= proposal.quorum && proposal.votes_yes > proposal.votes_no;
         proposal.state = if passed { ProposalState::Passed } else { ProposalState::Rejected };
 
+        // If the proposal passed, set the earliest timestamp at which execute() may be called.
+        // timelock_seconds = 0 means no delay (execute_after = now).
+        if proposal.state == ProposalState::Passed {
+            let timelock = GovernanceStorage::timelock_seconds(&env);
+            proposal.execute_after = now.saturating_add(timelock);
+        }
+
         GovernanceStorage::set_proposal(&env, proposal_id, &proposal);
         let active_count = GovernanceStorage::active_proposal_count(&env);
         if active_count > 0 {
@@ -600,6 +612,13 @@ impl GovernanceContract {
 
         if proposal.state != ProposalState::Passed {
             return Err(ContractError::ProposalNotPassed);
+        }
+
+        // Timelock check: execute_after is set by finalise() as now + timelock_seconds.
+        // A zero value means the timelock is disabled.
+        let now = env.ledger().timestamp();
+        if proposal.execute_after > 0 && now < proposal.execute_after {
+            return Err(ContractError::TimelockNotExpired);
         }
 
         // Invoke treasury disbursement if a payload is attached

@@ -47,7 +47,7 @@ pub fn setup<'a>(env: &'a Env) -> TestEnv<'a> {
     // Deploy governance
     let gov_id = env.register(GovernanceContract, ());
     let governance = GovernanceContractClient::new(env, &gov_id);
-    governance.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None);
+    governance.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
     TestEnv { env, governance, token, admin, voter_a, voter_b, voter_c }
 }

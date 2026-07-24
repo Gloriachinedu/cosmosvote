@@ -27,6 +27,9 @@ pub enum InstanceKey {
     Version,
     ContractState,
     Paused,
+    /// Seconds that must elapse after finalization before execute() is callable.
+    /// 0 = disabled.
+    TimelockSeconds,
 }
 
 #[soroban_sdk::contracttype]
@@ -136,6 +139,13 @@ impl GovernanceStorage {
     }
     pub fn set_paused(env: &Env, v: bool) {
         env.storage().instance().set(&InstanceKey::Paused, &v);
+    }
+
+    pub fn timelock_seconds(env: &Env) -> u64 {
+        env.storage().instance().get(&InstanceKey::TimelockSeconds).unwrap_or(0)
+    }
+    pub fn set_timelock_seconds(env: &Env, v: u64) {
+        env.storage().instance().set(&InstanceKey::TimelockSeconds, &v);
     }
 
     pub fn contract_state(env: &Env) -> ContractState {

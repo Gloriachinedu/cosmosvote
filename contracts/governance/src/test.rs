@@ -36,7 +36,7 @@ fn setup(env: &Env) -> (GovernanceContractClient<'_>, TokenContractClient<'_>, A
 
     let gov_id = env.register(GovernanceContract, ());
     let gov = GovernanceContractClient::new(env, &gov_id);
-    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None);
+    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
     (gov, token, admin, voter, voter2)
 }
@@ -144,7 +144,7 @@ fn test_min_balance_blocks_underfunded_proposer() {
     let gov_id = env.register(GovernanceContract, ());
     let gov = GovernanceContractClient::new(&env, &gov_id);
     // min proposal balance set to 1_000_000
-    gov.initialize(&admin, &token_id, &1_000_000i128, &0u64, &0u32, &false, &None);
+    gov.initialize(&admin, &token_id, &1_000_000i128, &0u64, &0u32, &false, &None, &0u64);
 
     let result = gov.try_create_proposal(
         &poor,
@@ -172,7 +172,7 @@ fn test_min_balance_allows_funded_proposer() {
 
     let gov_id = env.register(GovernanceContract, ());
     let gov = GovernanceContractClient::new(&env, &gov_id);
-    gov.initialize(&admin, &token_id, &1_000_000i128, &0u64, &0u32, &false, &None);
+    gov.initialize(&admin, &token_id, &1_000_000i128, &0u64, &0u32, &false, &None, &0u64);
 
     let id = gov.create_proposal(
         &rich,
@@ -201,7 +201,7 @@ fn test_min_balance_zero_allows_anyone() {
     let gov_id = env.register(GovernanceContract, ());
     let gov = GovernanceContractClient::new(&env, &gov_id);
     // min balance zero
-    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None);
+    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
     // poor proposer should still be able to create
     let id = gov.create_proposal(
@@ -266,7 +266,7 @@ fn test_initialize_success() {
 
     let gov_id = env.register(GovernanceContract, ());
     let gov = GovernanceContractClient::new(&env, &gov_id);
-    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None);
+    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
     assert_eq!(gov.admin(), admin);
     assert_eq!(gov.proposal_count(), 0);
@@ -389,7 +389,7 @@ fn test_create_proposal_below_quorum_floor_fails() {
     let gov_id = env.register(GovernanceContract, ());
     let gov = GovernanceContractClient::new(&env, &gov_id);
     // 10% quorum floor (1000 bps)
-    gov.initialize(&admin, &token_id, &0i128, &0u64, &1000u32, &false, &None);
+    gov.initialize(&admin, &token_id, &0i128, &0u64, &1000u32, &false, &None, &0u64);
 
     // 10% of 1M is 100k. 50k should fail.
     let result = gov.try_create_proposal(
@@ -502,7 +502,7 @@ fn test_cast_vote_reentrancy_via_token_balance_at_is_blocked() {
 
     let gov_id = env.register(GovernanceContract, ());
     let gov = GovernanceContractClient::new(&env, &gov_id);
-    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None);
+    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
     MaliciousTokenStorage::set_governance(&env, &gov_id);
 
@@ -855,7 +855,7 @@ fn test_old_admin_loses_privileges_after_transfer() {
 
     let gov_id = env.register(GovernanceContract, ());
     let gov = GovernanceContractClient::new(&env, &gov_id);
-    gov.initialize(&old_admin, &token_id, &0i128, &0u64, &0u32, &false, &None);
+    gov.initialize(&old_admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
     // create a proposal to be cancelled
     let proposal_id = gov.create_proposal(
@@ -1051,7 +1051,7 @@ fn test_restrict_admin_vote_blocks_admin_on_own_proposal() {
 
     let gov_id = env.register(GovernanceContract, ());
     let gov = GovernanceContractClient::new(&env, &gov_id);
-    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &true, &None);
+    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &true, &None, &0u64);
 
     // Proposal created by admin
     let id = gov.create_proposal(
@@ -1084,7 +1084,7 @@ fn test_restrict_admin_vote_allows_admin_on_others_proposal() {
 
     let gov_id = env.register(GovernanceContract, ());
     let gov = GovernanceContractClient::new(&env, &gov_id);
-    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &true, &None);
+    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &true, &None, &0u64);
 
     // Proposal created by voter (not admin)
     let id = gov.create_proposal(
@@ -1117,7 +1117,7 @@ fn test_restrict_admin_vote_false_allows_admin_everywhere() {
 
     let gov_id = env.register(GovernanceContract, ());
     let gov = GovernanceContractClient::new(&env, &gov_id);
-    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None);
+    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
     // Admin-created proposal
     let id_admin = gov.create_proposal(
@@ -1260,7 +1260,7 @@ fn test_execute_with_treasury_action() {
 
     let gov_id = env.register(GovernanceContract, ());
     let gov = GovernanceContractClient::new(&env, &gov_id);
-    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None);
+    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
     let action = TreasuryAction {
         recipient: recipient.clone(),
@@ -1592,4 +1592,136 @@ fn test_active_proposal_limit() {
         &None,
     );
     assert_eq!(result, Err(Ok(ContractError::ProposalsStillActive)));
+}
+
+// ---------------------------------------------------------------------------
+// Issue #570: Execution timelock
+// ---------------------------------------------------------------------------
+
+fn setup_with_timelock(env: &Env, timelock_seconds: u64) -> (GovernanceContractClient<'_>, TokenContractClient<'_>, Address, Address, Address) {
+    env.mock_all_auths();
+    let admin = Address::generate(env);
+    let voter = Address::generate(env);
+    let voter2 = Address::generate(env);
+
+    let token_id = env.register(TokenContract, ());
+    let token = TokenContractClient::new(env, &token_id);
+    token.initialize(
+        &admin,
+        &1_000_000_000i128,
+        &String::from_str(env, "CosmosVote"),
+        &String::from_str(env, "VOTE"),
+        &7u32,
+    );
+    token.mint(&admin, &voter, &10_000_000i128);
+    token.mint(&admin, &voter2, &5_000_000i128);
+
+    let gov_id = env.register(GovernanceContract, ());
+    let gov = GovernanceContractClient::new(env, &gov_id);
+    gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &timelock_seconds);
+
+    (gov, token, admin, voter, voter2)
+}
+
+#[test]
+fn test_execute_blocked_during_timelock() {
+    let timelock = 86_400u64; // 24 hours
+    let env = Env::default();
+    let (gov, _, admin, voter, _) = setup_with_timelock(&env, timelock);
+
+    // Create and pass a proposal
+    let id = gov.create_proposal(
+        &voter,
+        &String::from_str(&env, "Timelock Test"),
+        &String::from_str(&env, "Execute should be blocked during timelock"),
+        &1_000_000i128,
+        &3600u64,
+        &None,
+        &None,
+    );
+    gov.cast_vote(&voter, &id, &Vote::Yes);
+
+    // Advance past voting period
+    env.ledger().set_timestamp(env.ledger().timestamp() + 3601);
+    gov.finalise(&id);
+
+    // Verify proposal passed and execute_after is set correctly
+    let proposal = gov.get_proposal(&id);
+    assert_eq!(proposal.state, ProposalState::Passed);
+    // execute_after should be finalize_time + timelock
+    assert!(proposal.execute_after > 0);
+
+    // Attempt to execute immediately — should fail with TimelockNotExpired
+    let result = gov.try_execute(&admin, &id);
+    assert_eq!(result, Err(Ok(ContractError::TimelockNotExpired)));
+}
+
+#[test]
+fn test_execute_succeeds_after_timelock() {
+    let timelock = 86_400u64; // 24 hours
+    let env = Env::default();
+    let (gov, _, admin, voter, _) = setup_with_timelock(&env, timelock);
+
+    // Create and pass a proposal
+    let id = gov.create_proposal(
+        &voter,
+        &String::from_str(&env, "Timelock Pass Test"),
+        &String::from_str(&env, "Execute should succeed after timelock expires"),
+        &1_000_000i128,
+        &3600u64,
+        &None,
+        &None,
+    );
+    gov.cast_vote(&voter, &id, &Vote::Yes);
+
+    // Advance past voting period and finalise
+    env.ledger().set_timestamp(env.ledger().timestamp() + 3601);
+    gov.finalise(&id);
+
+    let proposal = gov.get_proposal(&id);
+    assert_eq!(proposal.state, ProposalState::Passed);
+
+    // Advance past the timelock period
+    env.ledger().set_timestamp(proposal.execute_after + 1);
+
+    // Execute should now succeed
+    gov.execute(&admin, &id);
+    let proposal = gov.get_proposal(&id);
+    assert_eq!(proposal.state, ProposalState::Executed);
+}
+
+#[test]
+fn test_execute_no_timelock_succeeds_immediately() {
+    // With timelock_seconds = 0, execute should succeed immediately after passing
+    let env = Env::default();
+    let (gov, _, admin, voter, _) = setup_with_timelock(&env, 0);
+
+    let id = gov.create_proposal(
+        &voter,
+        &String::from_str(&env, "No Timelock Test"),
+        &String::from_str(&env, "Execute should work immediately with no timelock"),
+        &1_000_000i128,
+        &3600u64,
+        &None,
+        &None,
+    );
+    gov.cast_vote(&voter, &id, &Vote::Yes);
+
+    env.ledger().set_timestamp(env.ledger().timestamp() + 3601);
+    gov.finalise(&id);
+
+    // No timelock — execute immediately
+    gov.execute(&admin, &id);
+    let proposal = gov.get_proposal(&id);
+    assert_eq!(proposal.state, ProposalState::Executed);
+}
+
+#[test]
+fn test_timelock_stored_in_config() {
+    let timelock = 172_800u64; // 48 hours
+    let env = Env::default();
+    let (gov, _, _, _, _) = setup_with_timelock(&env, timelock);
+
+    let config = gov.get_config();
+    assert_eq!(config.timelock_seconds, timelock);
 }

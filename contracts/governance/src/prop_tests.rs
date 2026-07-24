@@ -30,7 +30,7 @@ proptest! {
 
         let gov_id = env.register(GovernanceContract, ());
         let gov = GovernanceContractClient::new(&env, &gov_id);
-        gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None);
+        gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
         let id = gov.create_proposal(
             &voter,
@@ -74,7 +74,7 @@ proptest! {
 
         let gov_id = env.register(GovernanceContract, ());
         let gov = GovernanceContractClient::new(&env, &gov_id);
-        gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None);
+        gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
         let id = gov.create_proposal(
             &voter_a,
@@ -119,7 +119,7 @@ proptest! {
 
         let gov_id = env.register(GovernanceContract, ());
         let gov = GovernanceContractClient::new(&env, &gov_id);
-        gov.initialize(&admin, &token_id, &0i128, &0u64, &false);
+        gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
         let quorum = tie_weight; // total will be 2*tie_weight >= quorum
         let id = gov.create_proposal(
@@ -164,7 +164,7 @@ proptest! {
 
         let gov_id = env.register(GovernanceContract, ());
         let gov = GovernanceContractClient::new(&env, &gov_id);
-        gov.initialize(&admin, &token_id, &0i128, &0u64, &false);
+        gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
         // Set quorum so abstain is needed to push total over quorum
         let total = yes_weight + no_weight + abstain_weight;
@@ -212,7 +212,7 @@ proptest! {
 
         let gov_id = env.register(GovernanceContract, ());
         let gov = GovernanceContractClient::new(&env, &gov_id);
-        gov.initialize(&admin, &token_id, &0i128, &0u64, &false);
+        gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
         let total = yes_weight + no_weight;
         let quorum = total + 1; // always one more than total votes cast
@@ -255,7 +255,7 @@ proptest! {
 
         let gov_id = env.register(GovernanceContract, ());
         let gov = GovernanceContractClient::new(&env, &gov_id);
-        gov.initialize(&admin, &token_id, &0i128, &0u64, &false);
+        gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
         let quorum = tie_weight; // total will be 2*tie_weight >= quorum
         let id = gov.create_proposal(
@@ -300,7 +300,7 @@ proptest! {
 
         let gov_id = env.register(GovernanceContract, ());
         let gov = GovernanceContractClient::new(&env, &gov_id);
-        gov.initialize(&admin, &token_id, &0i128, &0u64, &false);
+        gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
         // Set quorum so abstain is needed to push total over quorum
         let total = yes_weight + no_weight + abstain_weight;
@@ -348,7 +348,7 @@ proptest! {
 
         let gov_id = env.register(GovernanceContract, ());
         let gov = GovernanceContractClient::new(&env, &gov_id);
-        gov.initialize(&admin, &token_id, &0i128, &0u64, &false);
+        gov.initialize(&admin, &token_id, &0i128, &0u64, &0u32, &false, &None, &0u64);
 
         let total = yes_weight + no_weight;
         let quorum = total + 1; // always one more than total votes cast
